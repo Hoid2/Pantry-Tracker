@@ -1,9 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    
+    <meta charset="UTF-8">
+    <title>Pantry Tracker</title>
+    <style>
+      body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
+      .hidden { display: none; }
+      .form-group { margin-bottom: 10px; }
+      label { display: block; margin-bottom: 5px; }
+      input { width: 100%; padding: 8px; box-sizing: border-box; }
+      button { padding: 8px 15px; background: #24b47e; color: white; border: none; cursor: pointer; }
+    </style>
   </head>
   <body>
-    <p>Hello World!</p>
+    <h1>Our Pantry</h1>
+    <ul id="pantry-list"></ul>
+
+    <script type="module">
+      import { createClient } from 'https://jsdelivr.net'
+
+      // 1. Initialize Supabase with your unique project credentials
+      const SUPABASE_URL = 'https://uoorkrndslhcfdejaxzi.supabase.co';
+      const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_oMwMxtd4AZkCn_VkvslY1A_DyuRu8Pc9';
+      const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+      // 2. Fetch and display items from your online database
+      async function loadPantry() {
+        const { data, error } = await supabase
+          .from('pantry')
+          .select('*');
+
+        if (error) {
+          console.error('Error loading pantry:', error);
+          return;
+        }
+
+        const list = document.getElementById('pantry-list');
+        list.innerHTML = data.map(item => `
+          <li>${item.name} - Qty: ${item.quantity} (Expires: ${item.expiration_date || 'N/A'})</li>
+        `).join('');
+      }
+      loadPantry();
+    </script>
   </body>
 </html>
