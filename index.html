@@ -1,46 +1,865 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Pantry Tracker</title>
-    <style>
-      body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
-      .hidden { display: none; }
-      .form-group { margin-bottom: 10px; }
-      label { display: block; margin-bottom: 5px; }
-      input { width: 100%; padding: 8px; box-sizing: border-box; }
-      button { padding: 8px 15px; background: #24b47e; color: white; border: none; cursor: pointer; }
-    </style>
-  </head>
-  <body>
-    <h1>Our Pantry</h1>
-    <ul id="pantry-list"></ul>
+<head>
+	<meta charset="UTF-8">
+	<title>Pantry Tracker</title>
+	<style>
+		:root {
+			--bg: #f3f6f4;
+			--surface: #ffffff;
+			--surface-alt: #f8faf9;
+			--border: #dfe8e3;
+			--text: #1f2a37;
+			--muted: #5f6f7a;
+			--primary: #2d9c74;
+			--primary-dark: #227d5d;
+			--secondary: #586f7c;
+			--accent: #2b6cb0;
+			--danger: #d64545;
+			--shadow: rgba(15, 23, 42, 0.08);
+		}
 
-    <script type="module">
-      import { createClient } from 'https://jsdelivr.net'
+		* {
+			box-sizing: border-box;
+		}
 
-      // 1. Initialize Supabase with your unique project credentials
-      const SUPABASE_URL = 'https://uoorkrndslhcfdejaxzi.supabase.co';
-      const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_oMwMxtd4AZkCn_VkvslY1A_DyuRu8Pc9';
-      const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+			padding: 24px 16px;
+			max-width: 560px;
+			margin: 0 auto;
+			background: var(--bg);
+			color: var(--text);
+			line-height: 1.5;
+		}
 
-      // 2. Fetch and display items from your online database
-      async function loadPantry() {
-        const { data, error } = await supabase
-          .from('pantry')
-          .select('*');
+		.hidden {
+			display: none !important;
+		}
 
-        if (error) {
-          console.error('Error loading pantry:', error);
-          return;
-        }
+		.screen {
+			display: none;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 18px;
+			box-shadow: 0 10px 24px var(--shadow);
+			padding: 20px;
+		}
 
-        const list = document.getElementById('pantry-list');
-        list.innerHTML = data.map(item => `
-          <li>${item.name} - Qty: ${item.quantity} (Expires: ${item.expiration_date || 'N/A'})</li>
-        `).join('');
-      }
-      loadPantry();
-    </script>
-  </body>
+		body[data-state="login"] #login-screen,
+		body[data-state="pantries"] #pantries-list-screen,
+		body[data-state="pantry-detail"] #pantry-detail-screen {
+			display: block;
+		}
+
+		h2 {
+			margin: 0 0 18px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			font-size: 1.75rem;
+		}
+
+		.form-group {
+			margin-bottom: 14px;
+		}
+
+		label {
+			display: block;
+			margin-bottom: 6px;
+			font-size: 0.9rem;
+			font-weight: 700;
+			color: var(--muted);
+		}
+
+		input {
+			width: 100%;
+			padding: 10px 12px;
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			background: var(--surface-alt);
+			color: var(--text);
+			font: inherit;
+		}
+
+		input:focus {
+			outline: 2px solid rgba(45, 156, 116, 0.2);
+			border-color: var(--primary);
+		}
+
+		button {
+			padding: 10px 14px;
+			background: var(--primary);
+			color: white;
+			border: none;
+			border-radius: 10px;
+			font: inherit;
+			font-weight: 700;
+			cursor: pointer;
+			transition: filter 0.15s ease, transform 0.15s ease;
+		}
+
+		button:hover {
+			filter: brightness(0.97);
+		}
+
+		button:active {
+			transform: translateY(1px);
+		}
+
+		#login-error {
+			color: var(--danger);
+			margin: 12px 0 0;
+			font-weight: 600;
+		}
+
+		#logout-btn {
+			background: var(--secondary);
+			margin-left: auto;
+		}
+
+		#current-user {
+			font-size: 0.8rem;
+			font-weight: 700;
+			color: var(--muted);
+			margin-left: auto;
+		}
+
+		#create-pantry-form,
+		#add-item-form {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 10px 12px;
+			align-items: end;
+			margin-bottom: 20px;
+		}
+
+		#create-pantry-form label,
+		#add-item-form label {
+			grid-column: 1 / -1;
+			margin-bottom: 0;
+		}
+
+		#create-pantry-form input,
+		#add-item-form input {
+			width: 100%;
+			display: block;
+		}
+
+		#create-pantry-form button,
+		#add-item-form button {
+			width: 110px;
+		}
+
+		#pantries-list,
+		#pantry-items-list {
+			list-style: none;
+			padding: 0;
+			margin: 0;
+			display: grid;
+			gap: 10px;
+		}
+
+		.pantry-element,
+		.pantry-item-element {
+			padding: 12px 14px;
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			background: var(--surface-alt);
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.pantry-name-btn {
+			background: var(--primary);
+			flex: 1;
+			text-align: left;
+		}
+
+		.pantry-share-btn,
+		.pantry-edit-btn {
+			background: var(--secondary);
+			min-width: 42px;
+		}
+
+		.pantry-delete-btn {
+			background: var(--danger);
+			min-width: 42px;
+		}
+
+		.delete-item-btn {
+			background: var(--danger);
+			padding: 6px 10px;
+			margin-left: auto;
+		}
+
+		.move-item-btn {
+			background: var(--secondary);
+			padding: 6px 10px;
+			margin-left: 8px;
+		}
+
+		.pantry-item-name {
+			flex: 1;
+			font-weight: 600;
+		}
+
+		.detail-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+			margin-bottom: 20px;
+		}
+
+		#back-btn,
+		#rename-pantry-btn {
+			background: var(--secondary);
+		}
+
+		#share-btn {
+			background: var(--accent);
+		}
+
+		#delete-pantry-btn {
+			background: var(--danger);
+		}
+
+		#qr-modal {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(15, 23, 42, 0.42);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 1000;
+			padding: 16px;
+		}
+
+		#qr-modal div {
+			background: var(--surface);
+			padding: 26px 24px 20px;
+			border-radius: 16px;
+			text-align: center;
+			box-shadow: 0 16px 30px rgba(15, 23, 42, 0.14);
+		}
+
+		#close-qr-btn {
+			background: var(--secondary);
+			margin-top: 10px;
+		}
+	</style>
+</head>
+<body data-state="none">
+	<!-- 1. LOGIN SCREEN -->
+	<div id="login-screen" class="screen">
+		<h2>Pantry Login</h2>
+		<form id="login-form">
+			<div class="form-group">
+				<label for="email">Email</label>
+				<input type="email" id="email" name="email" autocomplete="email" required>
+			</div>
+			<div class="form-group">
+				<label for="password">Password</label>
+				<input type="password" id="password" name="password" autocomplete="current-password" required>
+			</div>
+			<button type="submit">Sign In</button>
+		</form>
+		<p id="login-error"></p>
+	</div>
+
+	<!-- 2. PANTRIES LIST SCREEN -->
+	<div id="pantries-list-screen" class="screen">
+		<h2>My Pantries
+			<span id="current-user"></span>
+			<button id="logout-btn">Logout</button>
+		</h2>
+
+		<!-- Create Pantry Form -->
+		<form id="create-pantry-form">
+			<label for="pantry-name">Pantry Name</label>
+			<input type="text" id="pantry-name" name="pantry-name" required>
+			<button type="submit">Create</button>
+		</form>
+
+		<ul id="pantries-list"></ul>
+	</div>
+
+	<!-- 3. PANTRY DETAIL SCREEN -->
+	<div id="pantry-detail-screen" class="screen">
+		<h2 id="pantry-title"></h2>
+		<div class="detail-actions">
+			<button id="back-btn">Back to Pantries</button>
+			<button id="rename-pantry-btn">Rename Pantry</button>
+			<button id="share-btn">Share (QR)</button>
+			<button id="delete-pantry-btn">Delete Pantry</button>
+		</div>
+
+		<!-- Add Item Form -->
+		<form id="add-item-form">
+			<label for="item-name">Item Name</label>
+			<input type="text" id="item-name" name="item-name" required>
+			<button type="submit">Add</button>
+		</form>
+
+		<ul id="pantry-items-list"></ul>
+	</div>
+
+	<!-- QR Code Modal -->
+	<div id="qr-modal" class="hidden">
+		<div>
+			<h3>Share Pantry</h3>
+			<div id="qr-code-container"></div>
+			<button id="close-qr-btn">Close</button>
+		</div>
+	</div>
+
+	<script type="module">
+		import {createClient} from 'https://esm.run/@supabase/supabase-js'
+		import QRCode from 'https://esm.run/qrcode'
+
+		const SUPABASE_URL = 'https://uoorkrndslhcfdejaxzi.supabase.co';
+		const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_oMwMxtd4AZkCn_VkvslY1A_DyuRu8Pc';
+		const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+		const loginForm = document.getElementById('login-form');
+		const currentUserSpan = document.getElementById('current-user');
+		const logoutBtn = document.getElementById('logout-btn');
+		const createPantryForm = document.getElementById('create-pantry-form');
+		const pantriesList = document.getElementById('pantries-list');
+		const pantryTitle = document.getElementById('pantry-title');
+		const addItemForm = document.getElementById('add-item-form');
+		const pantryItemsList = document.getElementById('pantry-items-list');
+		const backBtn = document.getElementById('back-btn');
+		const shareBtn = document.getElementById('share-btn');
+		const deletePantryBtn = document.getElementById('delete-pantry-btn');
+		const renamePantryBtn = document.getElementById('rename-pantry-btn');
+		const qrModal = document.getElementById('qr-modal');
+		const qrCodeContainer = document.getElementById('qr-code-container');
+		const closeQrBtn = document.getElementById('close-qr-btn');
+
+		let currentUser = null;
+		let pantries = [];
+		let currentPantry = null;
+		let pantryItems = [];
+
+		function getPantry(pantryId) {
+			const pantry = pantries.find(p => p.id === pantryId);
+			if (!pantry) {
+				throw new Error(`Pantry not found: ${pantryId}`);
+			}
+			return pantry;
+		}
+
+		function getPantryItem(itemId) {
+			const item = pantryItems.find(i => i.id === itemId);
+			if (!item) {
+				throw new Error(`Pantry item not found: ${itemId}`);
+			}
+			return item;
+		}
+
+		function showLogin() {
+			document.body.dataset.state = 'login';
+			currentUser = null;
+			currentUserSpan.textContent = '';
+			pantries = [];
+			currentPantry = null;
+			pantryItems = [];
+		}
+
+		function showPantries() {
+			document.body.dataset.state = 'pantries';
+			currentPantry = null;
+			pantryItems = [];
+		}
+
+		function showPantryDetail(pantryId) {
+			document.body.dataset.state = 'pantry-detail';
+			currentPantry = getPantry(pantryId);
+			if (!currentPantry) {
+				alert('Pantry not found');
+				showPantries();
+				return;
+			}
+			pantryTitle.textContent = currentPantry.name;
+			loadPantryItems();
+		}
+
+		loginForm.addEventListener('submit', async (e) => {
+			e.preventDefault();
+
+			const formData = new FormData(e.target);
+			const data = await DB.login(formData.get("email"), formData.get("password"));
+			if (data) {
+				currentUser = data.user;
+				currentUserSpan.textContent = currentUser.email;
+				showPantries();
+				await loadPantryList();
+				await checkForInviteToken();
+				e.target.reset();
+			}
+		});
+
+		logoutBtn.addEventListener('click', () => {
+			DB.logout();
+			showLogin();
+		});
+
+		async function loadPantryList() {
+			pantriesList.innerHTML = '';
+			pantries = [];
+			(await DB.getAllowedPantries()).forEach(addPantry);
+		}
+
+		function addPantry(pantry) {
+			if (!pantry) return;
+			pantries.push(pantry);
+
+			const li = document.createElement('li');
+			li.className = 'pantry-element';
+			li.dataset.pantryId = pantry.id;
+
+			const nameBtn = document.createElement('button');
+			nameBtn.className = 'pantry-name-btn';
+			nameBtn.textContent = pantry.name;
+
+			const shareBtn = document.createElement('button');
+			shareBtn.className = 'pantry-share-btn';
+			shareBtn.textContent = '🔗';
+			shareBtn.title = 'Share pantry';
+
+			const editBtn = document.createElement('button');
+			editBtn.className = 'pantry-edit-btn';
+			editBtn.textContent = '✏️';
+			editBtn.title = 'Rename pantry';
+
+			const deleteBtn = document.createElement('button');
+			deleteBtn.className = 'pantry-delete-btn';
+			deleteBtn.textContent = '🗑️';
+			deleteBtn.title = 'Delete pantry';
+
+			li.appendChild(nameBtn);
+			li.appendChild(shareBtn);
+			li.appendChild(editBtn);
+			li.appendChild(deleteBtn);
+			insertSortedChild(pantriesList, li, (a, b) => getPantry(a.dataset.pantryId).name.localeCompare(getPantry(b.dataset.pantryId).name));
+		}
+
+		pantriesList.addEventListener('click', async (e) => {
+			const pantryId = e.target.closest("[data-pantry-id]")?.dataset.pantryId;
+			if (!pantryId) return;
+
+			if (e.target.classList.contains('pantry-name-btn')) {
+				showPantryDetail(pantryId);
+			} else if (e.target.classList.contains('pantry-share-btn')) {
+				await sharePantry(pantryId);
+			} else if (e.target.classList.contains('pantry-edit-btn')) {
+				await renamePantry(pantryId);
+			} else if (e.target.classList.contains('pantry-delete-btn')) {
+				await deletePantry(pantries[pantries.findIndex(p => p.id === pantryId)]);
+			}
+		});
+
+		async function sharePantry(pantryId) {
+			qrCodeContainer.innerHTML = '';
+			const inviteToken = await DB.createPantryInvite(pantryId);
+			if (!inviteToken) return;
+
+			const shareUrl = `${window.location.origin}${window.location.pathname}?inviteToken=${inviteToken}`;
+			QRCode.toCanvas(shareUrl, {}, function (error, canvas) {
+				if (error) {
+					onError(error);
+				} else {
+					qrCodeContainer.appendChild(canvas);
+				}
+			});
+			qrModal.classList.remove('hidden');
+		}
+
+		async function checkForInviteToken() {
+			const url = new URL(window.location.href);
+			const inviteToken = url.searchParams.get('inviteToken');
+			if (inviteToken) {
+				url.searchParams.delete('inviteToken');
+				window.history.replaceState(window.history.state, "", url.toString());
+
+				const pantryId = await DB.joinPantryFromScan(inviteToken);
+				if (pantryId) {
+					alert('Successfully joined pantry!');
+					addPantry(await DB.getPantry(pantryId));
+				}
+			}
+		}
+
+		createPantryForm.addEventListener('submit', async (e) => {
+			e.preventDefault();
+
+			const formData = new FormData(e.target);
+			const newPantryId = await DB.createPantry(formData.get("pantry-name"));
+			if (newPantryId) {
+				addPantry(await DB.getPantry(newPantryId));
+				e.target.reset();
+			}
+		});
+
+		async function renamePantry(pantryId) {
+			const pantry = pantries.find(p => p.id === pantryId);
+			if (!pantry) return false;
+			if (pantry.creator_id !== currentUser.id) {
+				alert('You can only rename pantries you created.');
+				return false;
+			}
+			const updatedName = window.prompt('Enter a new pantry name:', pantry.name)?.trim();
+			if (!updatedName) {
+				return false;
+			}
+			if (await DB.updatePantryName(pantryId, updatedName)) {
+				pantry.name = updatedName;
+				const listItem = pantriesList.querySelector(`[data-pantry-id="${pantryId}"] .pantry-name-btn`);
+				if (listItem) {
+					listItem.textContent = updatedName;
+				}
+				if (currentPantry && currentPantry.id === pantryId) {
+					currentPantry.name = updatedName;
+					pantryTitle.textContent = updatedName;
+				}
+				loadPantryList();
+				return true;
+			}
+			return false;
+		}
+
+		async function deletePantry(pantry) {
+			if (pantry.creator_id !== currentUser.id) {
+				alert('You are not the owner of this pantry.');
+				return false;
+			}
+			if (confirm(`Delete pantry: ${pantry.name}?`) && await DB.deletePantry(pantry.id)) {
+				pantriesList.querySelector(`[data-pantry-id="${pantry.id}"]`)?.remove();
+				pantries.splice(pantries.indexOf(pantry), 1);
+				return true;
+			}
+			return false;
+		}
+
+		async function loadPantryItems() {
+			pantryItemsList.innerHTML = '';
+			pantryItems = [];
+			if (!currentPantry) {
+				pantryItemsList.innerHTML = 'No pantry selected';
+				return;
+			}
+			(await DB.getPantryItems(currentPantry.id)).forEach(addPantryItem);
+		}
+
+		function addPantryItem(item) {
+			if (!item) return;
+			pantryItems.push(item);
+
+			const li = document.createElement('li');
+			li.className = 'pantry-item-element';
+			li.dataset.itemId = item.id;
+			if (typeof item.id !== 'string') {
+				throw new Error(`Pantry item id is not a string: ${item.id}`);
+			}
+
+			const nameSpan = document.createElement('span');
+			nameSpan.className = 'pantry-item-name';
+			nameSpan.textContent = item.name;
+
+			const moveBtn = document.createElement('button');
+			moveBtn.className = 'move-item-btn';
+			moveBtn.textContent = 'Move';
+			moveBtn.title = 'Move item to another pantry';
+
+			const deleteBtn = document.createElement('button');
+			deleteBtn.className = 'delete-item-btn';
+			deleteBtn.textContent = '🗑️';
+			deleteBtn.title = 'Delete item';
+
+			li.appendChild(nameSpan);
+			li.appendChild(moveBtn);
+			li.appendChild(deleteBtn);
+			insertSortedChild(pantryItemsList, li, (a, b) => getPantryItem(a.dataset.itemId).name.localeCompare(getPantryItem(b.dataset.itemId).name));
+		}
+
+		pantryItemsList.addEventListener('click', async (e) => {
+			const itemEl = e.target.closest("[data-item-id]");
+			if (!itemEl) return;
+
+			if (e.target.classList.contains('move-item-btn')) {
+				const item = getPantryItem(itemEl.dataset.itemId);
+				await moveItemToPantry(item, itemEl);
+			} else if (e.target.classList.contains('delete-item-btn')) {
+				const item = getPantryItem(itemEl.dataset.itemId);
+				if (await deleteItem(item)) {
+					itemEl.remove();
+				}
+			}
+		});
+
+		async function moveItemToPantry(item, itemEl) {
+			const availablePantries = pantries.filter(pantry => pantry.id !== currentPantry?.id);
+			if (!availablePantries.length) {
+				alert('No other pantry is available to move this item into.');
+				return false;
+			}
+
+			const optionsText = availablePantries.map((pantry, index) => `${index + 1}. ${pantry.name}`).join('\n');
+			const choice = window.prompt(`Move "${item.name}" to which pantry?\n\n${optionsText}\n\nEnter a number:`, '1');
+			if (choice === null) return false;
+
+			const selectedIndex = Number.parseInt(choice, 10) - 1;
+			if (Number.isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= availablePantries.length) {
+				alert('Please choose a valid pantry number.');
+				return false;
+			}
+
+			const targetPantry = availablePantries[selectedIndex];
+			if (await DB.movePantryItem(item.id, targetPantry.id)) {
+				pantryItems = pantryItems.filter(currentItem => currentItem.id !== item.id);
+				itemEl.remove();
+				return true;
+			}
+			return false;
+		}
+
+		async function deleteItem(item) {
+			return confirm(`Delete item: ${item.name}?`) && await DB.deletePantryItem(item.id);
+		}
+
+		addItemForm.addEventListener('submit', async (e) => {
+			e.preventDefault();
+
+			if (!currentPantry) return;
+
+			const formData = new FormData(e.target);
+			const newPantryItemId = await DB.addPantryItem(currentPantry.id, formData.get("item-name"));
+			if (newPantryItemId) {
+				addPantryItem(await DB.getPantryItem(newPantryItemId));
+				e.target.reset();
+			}
+		});
+
+		shareBtn.addEventListener('click', () => {
+			if (currentPantry) {
+				sharePantry(currentPantry.id);
+			}
+		});
+
+		renamePantryBtn.addEventListener('click', async () => {
+			if (currentPantry && await renamePantry(currentPantry.id)) {
+				showPantries();
+			}
+		});
+
+		closeQrBtn.addEventListener('click', () => qrModal.classList.add('hidden'));
+
+		backBtn.addEventListener('click', () => showPantries());
+
+		deletePantryBtn.addEventListener('click', async () => {
+			if (currentPantry && await deletePantry(currentPantry)) {
+				showPantries();
+			}
+		});
+
+		function onError(error) {
+			console.error(error.message, new Error().stack);
+			alert(error.message);
+		}
+
+		function insertSortedChild(parent, newChild, compareFn) {
+			const children = Array.from(parent.children);
+			const index = children.findIndex(child => compareFn(newChild, child) < 0);
+			if (index === -1) {
+				parent.appendChild(newChild);
+			} else {
+				parent.insertBefore(newChild, children[index]);
+			}
+		}
+
+		async function initApp() {
+			const session = await DB.getSession();
+			if (session) {
+				currentUser = session.user;
+				currentUserSpan.textContent = currentUser.email;
+				showPantries();
+				await loadPantryList();
+				await checkForInviteToken();
+			} else {
+				showLogin();
+			}
+		}
+
+		const DB = {
+			async getSession() {
+				const {data} = await supabase.auth.getSession();
+				return data?.session ?? null;
+			},
+
+			async login(email, password) {
+				const {data, error} = await supabase.auth.signInWithPassword({
+					email,
+					password
+				});
+				if (error) {
+					onError(error);
+					return null;
+				}
+				return data;
+			},
+
+			async logout() {
+				await supabase.auth.signOut({scope: "local"});
+			},
+
+			async joinPantryFromScan(scannedUuid) {
+				const {data, error} = await supabase.rpc('join_pantry_via_token', {token_id: scannedUuid});
+				if (error) {
+					onError(error);
+					return null;
+				}
+				return data;
+			},
+
+			async createPantry(pantryName) {
+				const {data, error} = await supabase.rpc('create_pantry', {pantry_name: pantryName});
+				if (error) {
+					onError(error);
+					return null;
+				} else {
+					return data;
+				}
+			},
+
+			async createPantryInvite(pantryId) {
+				const {data, error} = await supabase.rpc('create_pantry_invite', {target_pantry_id: pantryId});
+				if (error) {
+					onError(error);
+					return null;
+				} else {
+					return data;
+				}
+			},
+
+			async getAllowedPantries() {
+				const {data, error} = await supabase
+						.from('pantry_members')
+						.select('...pantries(*)')
+						.eq('member_id', currentUser.id)
+						.order('pantries(name)', {ascending: true});
+				if (error) {
+					onError(error);
+					return [];
+				}
+				return data;
+			},
+
+			async getPantry(pantryId) {
+				const {data, error} = await supabase
+						.from('pantries')
+						.select('*')
+						.eq('id', pantryId)
+						.single();
+				if (error) {
+					onError(error);
+					return null;
+				}
+				return data;
+			},
+
+			async updatePantryName(pantryId, pantryName) {
+				const {error} = await supabase
+					.from('pantries')
+					.update({name: pantryName})
+					.eq('id', pantryId);
+				if (error) {
+					onError(error);
+					return false;
+				}
+				return true;
+			},
+
+			async deletePantry(pantryId) {
+				const {count, error} = await supabase.from('pantries')
+					.delete({count: "exact"})
+					.eq('id', pantryId);
+				if (error) {
+					onError(error);
+					return false;
+				} else if (count === 0) {
+					return false;
+				}
+				return true;
+			},
+
+			async getPantryItems(pantryId) {
+				const {data, error} = await supabase
+						.from('pantry_items')
+						.select('*')
+						.eq('pantry_id', pantryId)
+						.order('name', {ascending: true});
+				if (error) {
+					onError(error);
+					return [];
+				}
+				return data;
+			},
+
+			async deletePantryItem(itemId) {
+				const {error} = await supabase.from('pantry_items')
+					.delete()
+					.eq('id', itemId);
+				if (error) {
+					onError(error);
+					return false;
+				}
+				return true;
+			},
+
+			async addPantryItem(pantryId, itemName) {
+				const {data: [{id}], error} = await supabase.from('pantry_items')
+					.insert({name: itemName, pantry_id: pantryId})
+						.select('id');
+				if (error) {
+					onError(error);
+					return null;
+				}
+				return id;
+			},
+
+			async movePantryItem(itemId, targetPantryId) {
+				const {error} = await supabase
+					.from('pantry_items')
+					.update({pantry_id: targetPantryId})
+					.eq('id', itemId);
+				if (error) {
+					onError(error);
+					return false;
+				}
+				return true;
+			},
+
+			async getPantryItem(itemId) {
+				const {data, error} = await supabase
+						.from('pantry_items')
+						.select('*')
+						.eq('id', itemId)
+						.single();
+				if (error) {
+					onError(error);
+					return null;
+				}
+				return data;
+			}
+		};
+
+		initApp();
+	</script>
+</body>
 </html>
